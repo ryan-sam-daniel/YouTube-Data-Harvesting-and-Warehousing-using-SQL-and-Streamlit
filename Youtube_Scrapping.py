@@ -175,6 +175,55 @@ def get_video_ids(youtube, playlist_id):
 
 
 
+
+def get_video_details_whole(youtube, video_ids):
+
+    all_video_info = []
+    
+    for i in range(0, len(video_ids), 50):
+        request = youtube.videos().list(
+            part="snippet,contentDetails,statistics",
+            id=','.join(video_ids[i:i+50])
+        )
+        response = request.execute() 
+
+        for video in response['items']:
+            stats_to_keep = {'snippet': ['channelTitle', 'title', 'description', 'tags', 'publishedAt'],
+                             'statistics': ['viewCount', 'likeCount', 'commentCount'],
+                             'contentDetails': ['duration', 'definition', 'caption']
+                            }
+            video_info = {}
+            video_info['video_id'] = video['id']
+
+            for k in stats_to_keep.keys():
+                for v in stats_to_keep[k]:
+                    try:
+                        video_info[v] = video[k][v]
+                    except:
+                        video_info[v] = None
+
+            all_video_info.append(video_info)
+    
+    video_df_whole=pd.DataFrame(all_video_info)
+    for i, row in video_df_whole.iterrows():
+        cursor.execute("SELECT COUNT(*) FROM video WHERE video_id = %s", (row['video_id'],))
+        count = cursor.fetchone()[0]
+        if count == 0:  # Insert only if the video_id doesn't exist
+            published_date = datetime.fromisoformat(row['publishedAt'].replace('Z', '+00:00')).strftime(
+                '%Y-%m-%d %H:%M:%S')
+            duration_seconds = iso8601_to_seconds(row['duration'])
+            cursor.execute(
+                "INSERT INTO video (video_id, channel_title, video_name, video_description, published_date,view_count ,like_count,favorite_count,comment_count,duration,thumbnail,caption_status ) VALUES (%s, %s, %s, %s, %s,%s, %s, %s, %s, %s,%s,%s)",
+                (row['video_id'], row['channelTitle'], row['title'], row['description'], published_date,
+                 row['viewCount'], row['likeCount'], row.get('favoriteCount', None), row['commentCount'], duration_seconds,
+                 row['definition'], row['caption']))
+            connection.commit()  # Commit after each row insertion
+
+    return video_df_whole
+
+
+
+
 #gettinf video details from the video_id
 def get_video_details(youtube, video_id):
     all_video_info = []
@@ -316,10 +365,11 @@ if selected_tab == 'Data Fetching':
     container2 = st.container(border=True)
     playlist_id = container2.text_input("Playlist id")
     video_ids = get_video_ids(youtube, playlist_id)
+    video_df_whole=get_video_details_whole(youtube , video_ids)
     if container2.button("Get", key="second"):
-        if video_ids is not None:
+        if video_df_whole is not None:
             st.header("Video Ids :")
-            st.write(video_ids)
+            st.write(video_df_whole)
             st.success("Videos ids are given")
             st.toast('Video ids Data fetched')
             time.sleep(.5)
