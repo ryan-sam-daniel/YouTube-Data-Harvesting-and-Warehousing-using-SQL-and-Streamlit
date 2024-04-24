@@ -14,7 +14,7 @@ _ Streamlit: Python library for creating interactive web applications.
 + MySQL: Relational database management system used for storing and managing the collected data.
 - Google API Client Library for Python: Python library for interacting with Google APIs, specifically the YouTube API.
 
-  ## Setup
+## Setup
 1) Clone the repository:
 `git clone https://github.com/yourusername/youtube-scraping-project.git`
 2) Install the required dependencies:
