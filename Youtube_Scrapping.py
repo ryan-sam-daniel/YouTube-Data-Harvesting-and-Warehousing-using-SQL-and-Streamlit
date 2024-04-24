@@ -292,23 +292,27 @@ selected_tab = st.sidebar.radio('', ['Data Fetching', 'Questions'])
 if selected_tab == 'Data Fetching':
     st.title('Youtube Scraping ')
     container = st.container(border=True)
-    channel_id = container.text_input('Channel id')
-    # st.write('The Youtube channel table is', channel_id)
-    channel_df = get_channel_videos(channel_id)
-    playlist_df = get_channel_playlists(channel_id)
-    if container.button('Get', key="first"):
-        if channel_df is not None:
-            st.header("Channel Data :")
-            st.write(channel_df)
-            st.success("Channel data fetched successfully!")
-            st.toast('Channel Data fetched')
-            time.sleep(.5)
-        if playlist_df is not None:
-            st.header("Playlist data :")
-            st.write(playlist_df)
-            st.success("Playlist data fetched successfully!")
-            st.toast('Playlist Data fetched')
-            time.sleep(.5)
+    channel_ids = container.text_area('Enter Channel IDs (seperated by comma)', height=200).strip().split(',')
+    if container.button('Get Data'):
+        for channel_id in channel_ids:
+            channel_df = get_channel_videos(channel_id)
+            playlist_df = get_channel_playlists(channel_id)
+            if channel_df is not None:
+                st.header("Channel Data :")
+                st.write(channel_df)
+                st.success("Channel data fetched successfully!")
+                st.toast('Channel Data fetched')
+                time.sleep(.5)
+            if playlist_df is not None:
+                st.header("Playlist data :")
+                st.write(playlist_df)
+                st.success("Playlist data fetched successfully!")
+                st.toast('Playlist Data fetched')
+                time.sleep(.5)
+
+        st.success("Data fetched successfully!")
+    
+    
     container2 = st.container(border=True)
     playlist_id = container2.text_input("Playlist id")
     video_ids = get_video_ids(youtube, playlist_id)
