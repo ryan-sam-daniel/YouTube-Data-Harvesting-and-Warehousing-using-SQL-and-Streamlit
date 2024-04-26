@@ -143,7 +143,7 @@ def iso8601_to_seconds(duration):
 #getting video ids from the given playlist
 def get_video_ids(youtube, playlist_id):
     if not playlist_id:
-        return []  # Return an empty list if playlist_id is empty
+        return [], None  # Return an empty list and None for playlist_id if playlist_id is empty
 
     video_ids = []
 
@@ -171,13 +171,13 @@ def get_video_ids(youtube, playlist_id):
 
         next_page_token = response.get('nextPageToken')
 
-    return video_ids
+    return video_ids, playlist_id
 
 
 
 
-def get_video_details_whole(youtube, video_ids):
 
+def get_video_details_whole(youtube, video_ids, playlist_id):
     all_video_info = []
     
     for i in range(0, len(video_ids), 50):
@@ -202,9 +202,26 @@ def get_video_details_whole(youtube, video_ids):
                     except:
                         video_info[v] = None
 
+            video_info['playlist_id'] = playlist_id  # Add playlist_id to the video_info dictionary
+            
+            # Fetch channel_id based on channelTitle
+            cursor.execute("SELECT channel_id FROM channel WHERE channel_name = %s", (video_info['channelTitle'],))
+            channel_id_result = cursor.fetchone()
+            if channel_id_result:
+                video_info['channel_id'] = channel_id_result[0]
+            else:
+                # If channel_id not found, set it to None or handle as per your requirement
+                video_info['channel_id'] = None
+
             all_video_info.append(video_info)
     
-    video_df_whole=pd.DataFrame(all_video_info)
+    video_df_whole = pd.DataFrame(all_video_info)
+    
+    # Ensure playlist_id is included in the DataFrame
+    if 'playlist_id' not in video_df_whole.columns:
+        video_df_whole['playlist_id'] = playlist_id
+    
+    # Insert data into the database
     for i, row in video_df_whole.iterrows():
         cursor.execute("SELECT COUNT(*) FROM video WHERE video_id = %s", (row['video_id'],))
         count = cursor.fetchone()[0]
@@ -212,11 +229,10 @@ def get_video_details_whole(youtube, video_ids):
             published_date = datetime.fromisoformat(row['publishedAt'].replace('Z', '+00:00')).strftime(
                 '%Y-%m-%d %H:%M:%S')
             duration_seconds = iso8601_to_seconds(row['duration'])
-            cursor.execute(
-                "INSERT INTO video (video_id, channel_title, video_name, video_description, published_date,view_count ,like_count,favorite_count,comment_count,duration,thumbnail,caption_status ) VALUES (%s, %s, %s, %s, %s,%s, %s, %s, %s, %s,%s,%s)",
+            cursor.execute("INSERT INTO video (video_id, channel_title, video_name, video_description, published_date, view_count, like_count, favorite_count, comment_count, duration, thumbnail, caption_status, channel_id,playlist_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s,%s,%s,%s)",
                 (row['video_id'], row['channelTitle'], row['title'], row['description'], published_date,
                  row['viewCount'], row['likeCount'], row.get('favoriteCount', None), row['commentCount'], duration_seconds,
-                 row['definition'], row['caption']))
+                 row['definition'], row['caption'],row['channel_id'], row['playlist_id']))
             connection.commit()  # Commit after each row insertion
 
     return video_df_whole
@@ -224,8 +240,11 @@ def get_video_details_whole(youtube, video_ids):
 
 
 
+
+
+
 #gettinf video details from the video_id
-def get_video_details(youtube, video_id):
+def get_video_details(youtube, video_id, playlist_id):
     all_video_info = []
 
     request = youtube.videos().list(
@@ -262,10 +281,10 @@ def get_video_details(youtube, video_id):
                 '%Y-%m-%d %H:%M:%S')
             duration_seconds = iso8601_to_seconds(row['duration'])
             cursor.execute(
-                "INSERT INTO video (video_id, channel_title, video_name, video_description, published_date,view_count ,like_count,favorite_count,comment_count,duration,thumbnail,caption_status ) VALUES (%s, %s, %s, %s, %s,%s, %s, %s, %s, %s,%s,%s)",
+                "INSERT INTO video (video_id, channel_title, video_name, video_description, published_date, view_count, like_count, favorite_count, comment_count, duration, thumbnail, caption_status, channel_id,playlist_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s,%s,%s,%s)",
                 (row['video_id'], row['channelTitle'], row['title'], row['description'], published_date,
                  row['viewCount'], row['likeCount'], row['favoriteCount'], row['commentCount'], duration_seconds,
-                 row['definition'], row['caption']))
+                 row['definition'], row['caption'],row['playlist_id']))
             connection.commit()  # Commit after each row insertion
 
     return video_df
@@ -336,7 +355,7 @@ def get_video_comments(video_id):
 
 #UI for the youtube scrapping project
 st.sidebar.title('Menus')
-selected_tab = st.sidebar.radio('', ['Data Fetching', 'Questions'])
+selected_tab = st.sidebar.radio('', ['Data Fetching', 'Questions','View Data'])
 
 if selected_tab == 'Data Fetching':
     st.title('Youtube Scraping ')
@@ -364,8 +383,8 @@ if selected_tab == 'Data Fetching':
     
     container2 = st.container(border=True)
     playlist_id = container2.text_input("Playlist id")
-    video_ids = get_video_ids(youtube, playlist_id)
-    video_df_whole=get_video_details_whole(youtube , video_ids)
+    video_ids, playlist_id = get_video_ids(youtube, playlist_id)
+    video_df_whole=get_video_details_whole(youtube , video_ids ,playlist_id)
     if container2.button("Get", key="second"):
         if video_df_whole is not None:
             st.header("Video Ids :")
@@ -375,7 +394,7 @@ if selected_tab == 'Data Fetching':
             time.sleep(.5)
     container3 = st.container(border=True)
     video_id_inp = container3.text_input("Video id (choose from the above)")    
-    video_df = get_video_details(youtube, video_id_inp)
+    video_df = get_video_details(youtube, video_id_inp, playlist_id)
     comment_df = get_video_comments(video_id_inp)
     if container3.button("Get", key="third"):    
         if video_df is not None:
@@ -390,6 +409,60 @@ if selected_tab == 'Data Fetching':
             st.success("Comment data is fetched successfully")
             st.toast('Comment Data fetched')
             time.sleep(.5)
+            
+elif selected_tab == "View Data":
+        # Fetch channel data from the database
+    # Fetch channel data from the database
+    cursor.execute("SELECT * FROM channel")
+    channel_rows = cursor.fetchall()
+    channel_df = pd.DataFrame(channel_rows, columns=['channel_id', 'channel_name', 'channel_type', 'channel_views', 'channel_description'])
+
+    # Fetch playlist data from the database
+    cursor.execute("SELECT * FROM playlist")
+    playlist_rows = cursor.fetchall()
+    playlist_df = pd.DataFrame(playlist_rows, columns=['playlist_id', 'channel_id', 'playlist_name'])
+
+    # Create a dropdown menu containing channel names
+    st.title('View the stored Data :')
+    selected_channel_name = st.selectbox('Select Channel Name', [''] + channel_df['channel_name'].tolist())
+
+    # Fetch and display the playlists for the selected channel
+    if selected_channel_name:
+        if selected_channel_name != '':
+            st.write(f"Playlists for {selected_channel_name}:")
+            channel_id = channel_df.loc[channel_df['channel_name'] == selected_channel_name, 'channel_id'].values[0]
+            channel_playlists = playlist_df.loc[playlist_df['channel_id'] == channel_id, 'playlist_name'].tolist()
+            selected_playlist_name = st.selectbox('Select Playlist Name', [''] + channel_playlists)
+            
+            if selected_playlist_name:
+                if selected_playlist_name != '':
+                    st.write(f"Details of playlist '{selected_playlist_name}':")
+                    playlist_details_df = playlist_df.loc[playlist_df['playlist_name'] == selected_playlist_name]
+                    st.write(playlist_details_df)
+                    
+                    # Fetch and display videos for the selected playlist
+                    cursor.execute("SELECT * FROM video WHERE playlist_id = %s", (playlist_details_df['playlist_id'].iloc[0],))
+                    video_rows = cursor.fetchall()
+                    video_df = pd.DataFrame(video_rows, columns=['video_id', 'channel_title', 'video_name', 'video_description', 'published_date', 'view_count', 'like_count', 'favorite_count', 'comment_count', 'duration', 'thumbnail', 'caption_status', 'channel_id', 'playlist_id'])
+                    selected_video_name = st.selectbox('Select Video Name', [''] + video_df['video_name'].tolist())
+                    
+                    if selected_video_name:
+                        if selected_video_name != '':
+                            st.write(f"Details of video '{selected_video_name}':")
+                            selected_video_details_df = video_df.loc[video_df['video_name'] == selected_video_name]
+                            st.write(selected_video_details_df)
+
+                    
+                    
+    # Fetch video data from the database
+    
+    # Create a dropdown menu containing video names
+    
+
+    # Display the details of the selected video
+    
+
+
 
 elif selected_tab == 'Questions':
     with st.expander(" 1) Names of all the videos and their corresponding channels:"):
@@ -470,7 +543,6 @@ elif selected_tab == 'Questions':
 
 
         
-
 
 
 
