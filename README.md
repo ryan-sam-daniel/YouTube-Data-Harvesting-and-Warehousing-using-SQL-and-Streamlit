@@ -1,4 +1,4 @@
-# Youtube Scrapping
+# YouTube Data Harvesting and Warehousing using SQL and Streamlit
 This project is aimed at scraping data from YouTube channels, playlists, videos, and comments using the YouTube API and storing it in a MySQL database. It provides functionality to fetch various types of data from YouTube and perform analysis on the collected data.
 
 ## Features
