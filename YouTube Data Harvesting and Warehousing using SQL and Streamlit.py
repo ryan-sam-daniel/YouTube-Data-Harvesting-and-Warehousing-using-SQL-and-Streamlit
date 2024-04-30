@@ -14,14 +14,14 @@ import time
 connection = mysql.connector.connect(
         host="localhost",
         user="root",
-        password="Taffy&0402",
+        password="your_password",
         database="youtube"
     )
 cursor=connection.cursor()
 
 
 #connecting with the youtube api
-Api_key = "AIzaSyDZKY_9aoN0MPmi4hh2_rkgxwhjt2TE2AI"
+Api_key = "your-api-key"
 api_service_name = "youtube"
 api_version = "v3"
 youtube = build(api_service_name, api_version, developerKey=Api_key)
