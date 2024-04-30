@@ -176,7 +176,7 @@ def get_video_ids(youtube, playlist_id):
 
 
 
-
+#getting all the video details from the all the video_ids
 def get_video_details_whole(youtube, video_ids, playlist_id):
     all_video_info = []
     
@@ -357,6 +357,7 @@ def get_video_comments(video_id):
 st.sidebar.title('Menus')
 selected_tab = st.sidebar.radio('', ['Data Fetching', 'Questions','View Data'])
 
+#data fetching
 if selected_tab == 'Data Fetching':
     st.title('Youtube Scraping ')
     container = st.container(border=True)
@@ -409,7 +410,8 @@ if selected_tab == 'Data Fetching':
             st.success("Comment data is fetched successfully")
             st.toast('Comment Data fetched')
             time.sleep(.5)
-            
+
+#viewing the data stored in the database
 elif selected_tab == "View Data":
         # Fetch channel data from the database
     # Fetch channel data from the database
@@ -453,17 +455,11 @@ elif selected_tab == "View Data":
                             st.write(selected_video_details_df)
 
                     
-                    
-    # Fetch video data from the database
-    
-    # Create a dropdown menu containing video names
-    
 
-    # Display the details of the selected video
     
 
 
-
+#seperate tab for questions
 elif selected_tab == 'Questions':
     with st.expander(" 1) Names of all the videos and their corresponding channels:"):
         cursor.execute("SELECT v.video_name, c.channel_name FROM video v INNER JOIN Channel c ON v.channel_title = c.channel_name")
